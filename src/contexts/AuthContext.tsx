@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 type AuthContextType = {
   session: Session | null;
@@ -20,6 +21,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -33,11 +35,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             title: "Success!",
             description: "You've successfully signed in.",
           });
+          navigate('/dashboard');
         } else if (event === 'SIGNED_OUT') {
           toast({
             title: "Signed out",
             description: "You've been successfully signed out.",
           });
+          navigate('/');
         }
       }
     );
@@ -50,7 +54,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return () => subscription.unsubscribe();
-  }, [toast]);
+  }, [toast, navigate]);
+
+  const sendWelcomeEmail = async (email: string, fullName: string) => {
+    try {
+      await supabase.functions.invoke('send-welcome-email', {
+        body: { email, fullName }
+      });
+    } catch (error) {
+      console.error('Error sending welcome email:', error);
+      // Don't block the signup process if email fails
+    }
+  };
 
   const signUp = async (email: string, password: string, fullName: string) => {
     const { error } = await supabase.auth.signUp({
@@ -63,6 +78,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
     
+    if (!error) {
+      await sendWelcomeEmail(email, fullName);
+      navigate('/dashboard');
+    }
+    
     return { error };
   };
 
@@ -71,6 +91,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email,
       password,
     });
+    
+    if (!error) {
+      navigate('/dashboard');
+    }
     
     return { error };
   };
