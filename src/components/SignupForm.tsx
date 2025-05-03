@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff } from "lucide-react";
 
@@ -13,6 +13,7 @@ const SignupForm = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -21,8 +22,7 @@ const SignupForm = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Signup form submitted:", formData);
-    // Here you would handle the signup process
+    navigate('/auth', { state: { activeTab: 'signup', prefillData: formData } });
   };
 
   return (
@@ -119,15 +119,15 @@ const SignupForm = () => {
         
         <Button
           type="submit"
-          className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3"
+          className="w-full bg-leadhustle-blue hover:bg-leadhustle-darkBlue text-white font-semibold py-3"
         >
-          Start my free trial
+          Create my account
         </Button>
         
         <div className="text-center mt-6">
           <p className="text-gray-600">
             Already have an account?{" "}
-            <Link to="/login" className="text-leadhustle-blue hover:underline font-medium">
+            <Link to="/auth" className="text-leadhustle-blue hover:underline font-medium">
               Sign in
             </Link>
           </p>
