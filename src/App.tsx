@@ -13,6 +13,7 @@ import ContactPage from "./pages/ContactPage";
 import SignupPage from "./pages/SignupPage";
 import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
+import LeadsPage from "./pages/LeadsPage"; // Added new import
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -47,6 +48,14 @@ const AppContent = () => {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/leads" 
+        element={
+          <ProtectedRoute>
+            <LeadsPage />
           </ProtectedRoute>
         } 
       />

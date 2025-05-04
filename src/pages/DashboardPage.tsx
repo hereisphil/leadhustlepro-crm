@@ -3,8 +3,11 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Navigation from '@/components/Navigation';
 import Footer from '@/components/Footer';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { FileSpreadsheet } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -114,12 +117,15 @@ const DashboardPage: React.FC = () => {
                       <h3 className="text-xl font-semibold mb-2">Ready to grow your lead database?</h3>
                       <p className="text-gray-500 mb-4">Import contacts or add them manually to get started.</p>
                       <div className="flex justify-center gap-4">
-                        <button className="px-4 py-2 bg-leadhustle-blue text-white rounded hover:bg-leadhustle-darkBlue transition">
-                          Import Contacts
-                        </button>
-                        <button className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 transition">
+                        <Link to="/leads">
+                          <Button className="flex items-center gap-2 bg-leadhustle-blue text-white rounded hover:bg-leadhustle-darkBlue">
+                            <FileSpreadsheet className="h-4 w-4" />
+                            Import Leads
+                          </Button>
+                        </Link>
+                        <Button className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50 transition">
                           Add Manually
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -132,9 +138,9 @@ const DashboardPage: React.FC = () => {
                     <div className="text-center py-8">
                       <h3 className="text-xl font-semibold mb-2">Create your first campaign</h3>
                       <p className="text-gray-500 mb-4">Design automated sequences to nurture and convert your leads.</p>
-                      <button className="px-4 py-2 bg-leadhustle-blue text-white rounded hover:bg-leadhustle-darkBlue transition">
+                      <Button className="px-4 py-2 bg-leadhustle-blue text-white rounded hover:bg-leadhustle-darkBlue transition">
                         New Campaign
-                      </button>
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
