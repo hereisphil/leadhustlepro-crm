@@ -12,7 +12,7 @@ const Hero = () => {
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
               <span className="text-gray-800">Get More Leads,</span>
               <br />
-              <span className="text-leadhustle-blue">Close More Deals</span>
+              <span className="text-leadhustle-blue">Close More Deals!</span>
             </h1>
             <p className="text-lg text-gray-600 mb-8">
               LeadHustle.pro helps freelancers and marketers stay 
