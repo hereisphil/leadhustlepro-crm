@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,8 +24,15 @@ interface CSVRow {
   [key: string]: string;
 }
 
+// Update the CustomField interface to include value property for consistency
 interface CustomField {
-  name: string;
+  value: string; // Use value consistently (same as standard fields)
+  label: string;
+}
+
+// Define the FieldOption type to represent all field types
+interface FieldOption {
+  value: string;
   label: string;
 }
 
@@ -46,7 +52,8 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
   const [newFieldLabel, setNewFieldLabel] = useState('');
   const [showCustomFieldDialog, setShowCustomFieldDialog] = useState(false);
   
-  const standardFields = [
+  // Standard fields now uses the FieldOption type for consistency
+  const standardFields: FieldOption[] = [
     { value: 'first_name', label: 'First Name' },
     { value: 'last_name', label: 'Last Name' },
     { value: 'email', label: 'Email' },
@@ -58,10 +65,10 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
     { value: 'notes', label: 'Notes' },
   ];
   
-  // Combine standard fields and custom fields
-  const dbFields = [
+  // Combine standard fields and custom fields - now both use the same property names
+  const dbFields: FieldOption[] = [
     ...standardFields,
-    ...customFields.map(field => ({ value: field.name, label: field.label })),
+    ...customFields,
     { value: 'none', label: 'Do not import' },
     { value: 'custom', label: '+ Create Custom Field' }
   ];
@@ -148,8 +155,8 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
     // Standardize field name (lowercase, underscores instead of spaces)
     const formattedFieldName = newFieldName.toLowerCase().replace(/\s+/g, '_');
     
-    // Check if field name already exists
-    if ([...standardFields, ...customFields].some(field => field.value === formattedFieldName || field.name === formattedFieldName)) {
+    // Check if field name already exists - fixed to use value property for both types
+    if ([...standardFields, ...customFields].some(field => field.value === formattedFieldName)) {
       toast({
         title: "Field exists",
         description: "This field name is already in use",
@@ -158,8 +165,12 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
       return;
     }
     
-    // Add the new custom field
-    const newField = { name: formattedFieldName, label: newFieldName };
+    // Add the new custom field with consistent properties (value and label)
+    const newField: CustomField = { 
+      value: formattedFieldName, 
+      label: newFieldName 
+    };
+    
     setCustomFields([...customFields, newField]);
     
     // Update the mapping for the header that triggered the dialog
@@ -263,13 +274,13 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
     fileInputRef.current?.click();
   };
 
-  const removeCustomField = (fieldName: string) => {
-    setCustomFields(customFields.filter(field => field.name !== fieldName));
+  const removeCustomField = (fieldValue: string) => {
+    setCustomFields(customFields.filter(field => field.value !== fieldValue));
     
     // Update any mappings that used this field
     const updatedMapping = { ...headerMapping };
     for (const [header, value] of Object.entries(updatedMapping)) {
-      if (value === fieldName) {
+      if (value === fieldValue) {
         updatedMapping[header] = 'none';
       }
     }
@@ -327,10 +338,10 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
                   <h4 className="font-medium mb-2 text-sm text-gray-600">Custom Fields</h4>
                   <div className="flex flex-wrap gap-2">
                     {customFields.map((field) => (
-                      <div key={field.name} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-sm">
+                      <div key={field.value} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-sm">
                         {field.label}
                         <button 
-                          onClick={() => removeCustomField(field.name)}
+                          onClick={() => removeCustomField(field.value)}
                           className="text-blue-500 hover:text-blue-700"
                         >
                           <X className="h-3 w-3" />
