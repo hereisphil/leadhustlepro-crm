@@ -14,7 +14,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, ListFilter } from 'lucide-react';
+import { Search, ListFilter, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 type Lead = {
   id: string;
@@ -30,18 +31,30 @@ type Lead = {
 
 interface LeadsTableProps {
   refreshTrigger: number;
+  limit?: number;
+  showViewAllLink?: boolean;
 }
 
-const LeadsTable: React.FC<LeadsTableProps> = ({ refreshTrigger }) => {
+const LeadsTable: React.FC<LeadsTableProps> = ({ 
+  refreshTrigger, 
+  limit, 
+  showViewAllLink = false 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
 
   const { data: leads = [], isLoading, error, refetch } = useQuery({
-    queryKey: ['leads', refreshTrigger],
+    queryKey: ['leads', refreshTrigger, limit],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false });
+      
+      if (limit) {
+        query = query.limit(limit);
+      }
+      
+      const { data, error } = await query;
       
       if (error) throw error;
       return data as Lead[];
@@ -80,24 +93,26 @@ const LeadsTable: React.FC<LeadsTableProps> = ({ refreshTrigger }) => {
 
   return (
     <div className="bg-white rounded-lg shadow">
-      <div className="p-4 border-b">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search leads..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex items-center gap-2">
-              <ListFilter className="h-4 w-4" /> Filter
-            </Button>
+      {!limit && (
+        <div className="p-4 border-b">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search leads..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex items-center gap-2">
+                <ListFilter className="h-4 w-4" /> Filter
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
       
       <div className="overflow-x-auto">
         <Table>
@@ -136,6 +151,16 @@ const LeadsTable: React.FC<LeadsTableProps> = ({ refreshTrigger }) => {
           </TableBody>
         </Table>
       </div>
+      
+      {showViewAllLink && leads.length > 0 && (
+        <div className="p-4 border-t">
+          <Link to="/leads">
+            <Button variant="ghost" className="flex items-center gap-1 text-leadhustle-blue">
+              View All Leads <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      )}
     </div>
   );
 };

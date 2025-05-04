@@ -1,13 +1,12 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import Navigation from '@/components/Navigation';
-import Footer from '@/components/Footer';
+import DashboardNavigation from '@/components/DashboardNavigation';
+import DashboardFooter from '@/components/DashboardFooter';
 import LeadsImporter from '@/components/leads/LeadsImporter';
 import LeadsTable from '@/components/leads/LeadsTable';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
 import { FileSpreadsheet, Table } from 'lucide-react';
 
 const LeadsPage = () => {
@@ -25,7 +24,7 @@ const LeadsPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navigation />
+      <DashboardNavigation />
       
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4">
@@ -56,7 +55,7 @@ const LeadsPage = () => {
         </div>
       </main>
       
-      <Footer />
+      <DashboardFooter />
     </div>
   );
 };

@@ -9,8 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Upload } from 'lucide-react';
+import { Upload, Plus, X } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface LeadsImporterProps {
   onImportSuccess: () => void;
@@ -24,6 +25,11 @@ interface CSVRow {
   [key: string]: string;
 }
 
+interface CustomField {
+  name: string;
+  label: string;
+}
+
 const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -35,8 +41,12 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
   const [csvData, setCsvData] = useState<CSVRow[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [step, setStep] = useState<'upload' | 'map' | 'confirm'>('upload');
+  const [customFields, setCustomFields] = useState<CustomField[]>([]);
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldLabel, setNewFieldLabel] = useState('');
+  const [showCustomFieldDialog, setShowCustomFieldDialog] = useState(false);
   
-  const dbFields = [
+  const standardFields = [
     { value: 'first_name', label: 'First Name' },
     { value: 'last_name', label: 'Last Name' },
     { value: 'email', label: 'Email' },
@@ -46,7 +56,14 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
     { value: 'status', label: 'Status' },
     { value: 'source', label: 'Source' },
     { value: 'notes', label: 'Notes' },
-    { value: 'none', label: 'Do not import' }
+  ];
+  
+  // Combine standard fields and custom fields
+  const dbFields = [
+    ...standardFields,
+    ...customFields.map(field => ({ value: field.name, label: field.label })),
+    { value: 'none', label: 'Do not import' },
+    { value: 'custom', label: '+ Create Custom Field' }
   ];
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,10 +121,64 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
   };
 
   const handleMapChange = (header: string, dbField: string) => {
+    if (dbField === 'custom') {
+      // Store the current header to map to the custom field
+      setNewFieldLabel(header);
+      // Open the custom field dialog
+      setShowCustomFieldDialog(true);
+      return;
+    }
+    
     setHeaderMapping(prev => ({
       ...prev,
       [header]: dbField
     }));
+  };
+
+  const handleAddCustomField = () => {
+    if (!newFieldName) {
+      toast({
+        title: "Field name required",
+        description: "Please enter a name for your custom field",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Standardize field name (lowercase, underscores instead of spaces)
+    const formattedFieldName = newFieldName.toLowerCase().replace(/\s+/g, '_');
+    
+    // Check if field name already exists
+    if ([...standardFields, ...customFields].some(field => field.value === formattedFieldName || field.name === formattedFieldName)) {
+      toast({
+        title: "Field exists",
+        description: "This field name is already in use",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Add the new custom field
+    const newField = { name: formattedFieldName, label: newFieldName };
+    setCustomFields([...customFields, newField]);
+    
+    // Update the mapping for the header that triggered the dialog
+    if (newFieldLabel) {
+      setHeaderMapping(prev => ({
+        ...prev,
+        [newFieldLabel]: formattedFieldName
+      }));
+    }
+    
+    // Reset form
+    setNewFieldName('');
+    setNewFieldLabel('');
+    setShowCustomFieldDialog(false);
+    
+    toast({
+      title: "Custom field created",
+      description: `Added custom field "${newFieldName}"`,
+    });
   };
 
   const handleImport = async () => {
@@ -172,6 +243,7 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
       setHeaderMapping({});
       setCsvData([]);
       setStep('upload');
+      setCustomFields([]);
       
       // Trigger parent refresh
       onImportSuccess();
@@ -189,6 +261,19 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
 
   const handleUploadClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const removeCustomField = (fieldName: string) => {
+    setCustomFields(customFields.filter(field => field.name !== fieldName));
+    
+    // Update any mappings that used this field
+    const updatedMapping = { ...headerMapping };
+    for (const [header, value] of Object.entries(updatedMapping)) {
+      if (value === fieldName) {
+        updatedMapping[header] = 'none';
+      }
+    }
+    setHeaderMapping(updatedMapping);
   };
 
   return (
@@ -236,6 +321,26 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium mb-4">Map your spreadsheet columns to lead fields</h3>
+              
+              {customFields.length > 0 && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-md">
+                  <h4 className="font-medium mb-2 text-sm text-gray-600">Custom Fields</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {customFields.map((field) => (
+                      <div key={field.name} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-sm">
+                        {field.label}
+                        <button 
+                          onClick={() => removeCustomField(field.name)}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <div className="space-y-3">
                 {headers.map((header) => (
                   <div key={header} className="grid grid-cols-2 gap-4 items-center">
@@ -273,7 +378,7 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
                             className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                           >
                             {header}
-                            {headerMapping[header] !== 'none' && (
+                            {headerMapping[header] !== 'none' && headerMapping[header] !== 'custom' && (
                               <span className="block text-xs text-gray-400 normal-case font-normal">
                                 → {dbFields.find(f => f.value === headerMapping[header])?.label}
                               </span>
@@ -319,6 +424,7 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
                   setHeaders([]);
                   setHeaderMapping({});
                   setCsvData([]);
+                  setCustomFields([]);
                   setStep('upload');
                 }}
               >
@@ -334,6 +440,39 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={showCustomFieldDialog} onOpenChange={setShowCustomFieldDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Custom Field</DialogTitle>
+            <DialogDescription>
+              Add a custom field to store additional lead information
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="field-name">Field Name</Label>
+              <Input 
+                id="field-name" 
+                placeholder="e.g. Industry, Budget, Lead Score"
+                value={newFieldName}
+                onChange={(e) => setNewFieldName(e.target.value)}
+              />
+              <p className="text-xs text-gray-500">This will be converted to a database column</p>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCustomFieldDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddCustomField}>
+              Create Custom Field
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
