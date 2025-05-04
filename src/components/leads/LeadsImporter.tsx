@@ -206,14 +206,34 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
     
     try {
       const transformedData = csvData.map((row) => {
-        const transformedRow: { [key: string]: string; user_id: string } = {
-          user_id: user.id
+        // Base lead object with standard fields
+        const transformedRow: { 
+          [key: string]: string | object; 
+          user_id: string;
+          custom_fields: { [key: string]: string };
+        } = {
+          user_id: user.id,
+          custom_fields: {}
         };
         
+        // Process each header in the CSV
         Object.keys(row).forEach(header => {
           const mappedField = headerMapping[header];
-          if (mappedField && mappedField !== 'none') {
+          
+          // Skip fields marked as 'none'
+          if (!mappedField || mappedField === 'none') {
+            return;
+          }
+          
+          // Check if this is a standard field or custom field
+          const isStandardField = standardFields.some(field => field.value === mappedField);
+          
+          if (isStandardField) {
+            // Add to standard fields
             transformedRow[mappedField] = row[header];
+          } else {
+            // Add to custom fields
+            transformedRow.custom_fields[mappedField] = row[header];
           }
         });
         
@@ -222,9 +242,17 @@ const LeadsImporter: React.FC<LeadsImporterProps> = ({ onImportSuccess }) => {
       
       // Filter out empty rows
       const validData = transformedData.filter(row => {
-        // Check if row has at least one field with data besides user_id
-        return Object.keys(row).length > 1 && 
-               Object.keys(row).some(key => key !== 'user_id' && row[key]);
+        // Check if row has at least one field with data besides user_id and empty custom_fields
+        const hasStandardFields = Object.keys(row).some(key => 
+          key !== 'user_id' && 
+          key !== 'custom_fields' && 
+          row[key]
+        );
+        
+        // Check if custom_fields has any data
+        const hasCustomFields = Object.keys(row.custom_fields).length > 0;
+        
+        return hasStandardFields || hasCustomFields;
       });
       
       if (validData.length === 0) {

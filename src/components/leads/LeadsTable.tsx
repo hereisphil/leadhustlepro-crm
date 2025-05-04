@@ -27,6 +27,7 @@ type Lead = {
   job_title: string;
   status: string;
   source: string;
+  custom_fields?: Record<string, string>;
 };
 
 interface LeadsTableProps {
@@ -41,6 +42,7 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   showViewAllLink = false 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [customColumns, setCustomColumns] = useState<string[]>([]);
 
   const { data: leads = [], isLoading, error, refetch } = useQuery({
     queryKey: ['leads', refreshTrigger, limit],
@@ -64,6 +66,23 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
   useEffect(() => {
     refetch();
   }, [refreshTrigger, refetch]);
+
+  // Extract and deduplicate custom field keys across all leads
+  useEffect(() => {
+    if (leads && leads.length > 0) {
+      const customFieldKeys = new Set<string>();
+      
+      leads.forEach(lead => {
+        if (lead.custom_fields) {
+          Object.keys(lead.custom_fields).forEach(key => {
+            customFieldKeys.add(key);
+          });
+        }
+      });
+      
+      setCustomColumns(Array.from(customFieldKeys));
+    }
+  }, [leads]);
 
   const filteredLeads = leads.filter(lead => 
     lead.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -129,6 +148,9 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
               <TableHead>Job Title</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Source</TableHead>
+              {customColumns.map((column) => (
+                <TableHead key={column} className="capitalize">{column.replace(/_/g, ' ')}</TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -146,6 +168,11 @@ const LeadsTable: React.FC<LeadsTableProps> = ({
                   </Badge>
                 </TableCell>
                 <TableCell>{lead.source || 'Import'}</TableCell>
+                {customColumns.map((column) => (
+                  <TableCell key={`${lead.id}-${column}`}>
+                    {lead.custom_fields?.[column] || 'N/A'}
+                  </TableCell>
+                ))}
               </TableRow>
             ))}
           </TableBody>
