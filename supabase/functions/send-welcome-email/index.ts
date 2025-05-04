@@ -3,6 +3,9 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "npm:resend@2.0.0";
 
 const resendApiKey = Deno.env.get("RESEND_API_KEY");
+if (!resendApiKey) {
+  console.error("RESEND_API_KEY environment variable is not set");
+}
 const resend = new Resend(resendApiKey);
 
 const corsHeaders = {
@@ -23,6 +26,12 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    console.log("Processing welcome email request");
+    
+    if (!resendApiKey) {
+      throw new Error("RESEND_API_KEY is not configured. Please set this environment variable.");
+    }
+    
     const { email, fullName }: WelcomeEmailRequest = await req.json();
     const name = fullName || email.split("@")[0];
 

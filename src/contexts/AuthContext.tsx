@@ -58,9 +58,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const sendWelcomeEmail = async (email: string, fullName: string) => {
     try {
-      await supabase.functions.invoke('send-welcome-email', {
+      const { data, error } = await supabase.functions.invoke('send-welcome-email', {
         body: { email, fullName }
       });
+      
+      if (error) {
+        console.error('Error invoking welcome email function:', error);
+        toast({
+          title: "Welcome email could not be sent",
+          description: "Your account was created, but we couldn't send you a welcome email.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log('Welcome email sent successfully:', data);
     } catch (error) {
       console.error('Error sending welcome email:', error);
       // Don't block the signup process if email fails
