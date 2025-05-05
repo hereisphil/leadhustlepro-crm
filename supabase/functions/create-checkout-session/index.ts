@@ -30,6 +30,8 @@ serve(async (req) => {
     if (!userId) {
       throw new Error("Missing required parameter: userId");
     }
+    
+    console.log("Creating checkout session for user:", userId);
 
     // Create Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -66,13 +68,21 @@ serve(async (req) => {
         },
       });
       customerId = customer.id;
+      console.log("Created new customer:", customerId);
+    } else {
+      console.log("Using existing customer:", customerId);
     }
 
     // The actual price ID for a recurring subscription
     const priceId = "price_1PhpOrLXVTuI8YtKeLlLupp6";
     
-    // Determine base URL
-    const origin = returnUrl || (req.headers.get("origin") || "http://localhost:5173");
+    // Determine base URL and construct success URL
+    const origin = returnUrl ? new URL(returnUrl).origin : (req.headers.get("origin") || "http://localhost:5173");
+    const successUrl = `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = `${origin}/welcome?canceled=true`;
+
+    console.log("Success URL:", successUrl);
+    console.log("Cancel URL:", cancelUrl);
     
     // Create a Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
@@ -84,8 +94,8 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/welcome?canceled=true`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       subscription_data: {
         trial_period_days: 7,
       },
@@ -103,6 +113,8 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
 
+    console.log("Checkout session created:", session.id);
+    
     return new Response(JSON.stringify({ sessionUrl: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

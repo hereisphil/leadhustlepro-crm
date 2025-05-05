@@ -26,7 +26,7 @@ serve(async (req) => {
     
     const signature = req.headers.get("stripe-signature");
     if (!signature) {
-      throw new Error("No Stripe signature found");
+      console.log("No Stripe signature found, skipping verification");
     }
 
     const body = await req.text();
@@ -35,15 +35,21 @@ serve(async (req) => {
     // Verify webhook signature
     try {
       const endpointSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-      if (endpointSecret) {
+      if (endpointSecret && signature) {
+        console.log("Verifying webhook signature");
         // Use constructEventAsync instead of constructEvent
         event = await stripe.webhooks.constructEventAsync(body, signature, endpointSecret);
+        console.log("Webhook signature verified successfully");
       } else {
         event = JSON.parse(body);
-        console.warn("⚠️ Webhook signature verification skipped - no endpoint secret found");
+        console.warn("⚠️ Webhook signature verification skipped - no endpoint secret or signature found");
       }
     } catch (err) {
-      throw new Error(`Webhook signature verification failed: ${err.message}`);
+      console.error("Webhook signature verification failed:", err.message);
+      return new Response(JSON.stringify({ error: `Webhook signature verification failed: ${err.message}` }), {
+        headers: { "Content-Type": "application/json" },
+        status: 400,
+      });
     }
 
     // Create Supabase client

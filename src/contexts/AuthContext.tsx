@@ -41,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     setLoadingSubscription(true);
     try {
+      console.log("Refreshing subscription data for user:", user.id);
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         body: { userId: user.id }
       });
@@ -50,7 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
       
+      console.log("Subscription data received:", data);
       setSubscription(data);
+      
+      // If subscription is active or in trial, we can redirect to dashboard
+      if (data?.active || data?.status === 'trialing') {
+        console.log("Active subscription detected during refresh");
+      }
     } catch (error) {
       console.error('Failed to refresh subscription:', error);
     } finally {
@@ -92,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, currentSession) => {
+        console.log(`Auth event: ${event}`);
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
 
@@ -114,6 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      console.log("Checking existing session");
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
       setLoading(false);
@@ -125,6 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Check subscription when user changes
   useEffect(() => {
     if (user) {
+      console.log("User detected, checking subscription");
       refreshSubscription();
     }
   }, [user]);
@@ -180,6 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!error) {
       // Check subscription status before navigating
       try {
+        console.log("Checking subscription after sign in");
         const { data } = await supabase.functions.invoke('check-subscription', {
           body: { userId: user?.id }
         });
@@ -187,8 +198,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSubscription(data);
         
         if (data && (data.active || data.status === 'trialing')) {
+          console.log("Active subscription found, navigating to dashboard");
           navigate('/dashboard');
         } else {
+          console.log("No active subscription, navigating to welcome");
           navigate('/welcome');
         }
       } catch (error) {
@@ -205,7 +218,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, subscription, loadingSubscription, signUp, signIn, signOut, refreshSubscription, openCustomerPortal }}>
+    <AuthContext.Provider value={{ 
+      session, 
+      user, 
+      loading, 
+      subscription, 
+      loadingSubscription, 
+      signUp, 
+      signIn, 
+      signOut, 
+      refreshSubscription, 
+      openCustomerPortal 
+    }}>
       {children}
     </AuthContext.Provider>
   );

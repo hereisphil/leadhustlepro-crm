@@ -34,6 +34,7 @@ const WelcomePage: React.FC = () => {
 
     // If there's a session_id in the URL, it means the user has completed checkout
     if (sessionId) {
+      console.log("Session ID detected:", sessionId);
       // Refresh subscription status and navigate to dashboard
       handleSuccessfulCheckout();
       return;
@@ -42,6 +43,11 @@ const WelcomePage: React.FC = () => {
     // Check if user already has an active subscription
     const checkSubscription = async () => {
       try {
+        if (!user?.id) {
+          console.error('No user ID available for subscription check');
+          return;
+        }
+
         const { data, error } = await supabase.functions.invoke('check-subscription', {
           body: { userId: user.id }
         });
@@ -51,7 +57,10 @@ const WelcomePage: React.FC = () => {
           return;
         }
 
-        if (data.active) {
+        console.log('Subscription check result:', data);
+        
+        if (data?.active || data?.status === 'trialing') {
+          console.log('Active subscription found, redirecting to dashboard');
           // User already has an active subscription or trial, redirect to dashboard
           navigate('/dashboard');
         }
@@ -69,6 +78,8 @@ const WelcomePage: React.FC = () => {
     setLoading(true);
     
     try {
+      console.log("Processing successful checkout for user:", user.id);
+      
       // Refresh subscription status
       await refreshSubscription();
       
@@ -80,10 +91,16 @@ const WelcomePage: React.FC = () => {
       
       // Redirect to dashboard after a short delay
       setTimeout(() => {
-        navigate('/dashboard');
+        console.log("Redirecting to dashboard after successful checkout");
+        navigate('/dashboard', { replace: true });
       }, 500);
     } catch (error) {
       console.error('Error processing successful checkout:', error);
+      toast({
+        title: "Subscription Error",
+        description: "There was a problem activating your subscription. Please try refreshing the page.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -98,7 +115,7 @@ const WelcomePage: React.FC = () => {
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: { 
           userId: user.id,
-          returnUrl: window.location.origin
+          returnUrl: window.location.origin + '/dashboard' // Direct to dashboard after checkout
         }
       });
 
@@ -107,6 +124,7 @@ const WelcomePage: React.FC = () => {
       }
       
       if (data.sessionUrl) {
+        // Redirect to Stripe checkout
         window.location.href = data.sessionUrl;
       } else {
         throw new Error('No checkout URL returned');
