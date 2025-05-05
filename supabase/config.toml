@@ -1,5 +1,14 @@
 
 project_id = "kgyjjfaaldmmcbtvqbgo"
 
-[functions.send-welcome-email]
+[functions.create-checkout-session]
 verify_jwt = true
+
+[functions.check-subscription]
+verify_jwt = true
+
+[functions.customer-portal]
+verify_jwt = true
+
+[functions.webhook]
+verify_jwt = false

@@ -10,10 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LayoutDashboard, Table, UserCircle } from "lucide-react";
+import { LayoutDashboard, Table, UserCircle, CreditCard } from "lucide-react";
 
 const DashboardNavigation = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, openCustomerPortal, subscription } = useAuth();
 
   return (
     <nav className="flex items-center justify-between p-4 md:p-6 bg-white border-b">
@@ -56,6 +56,16 @@ const DashboardNavigation = () => {
             </DropdownMenuItem>
             <DropdownMenuItem>
               <Link to="/profile" className="w-full">Profile</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={openCustomerPortal}
+              disabled={!subscription?.active && subscription?.status !== 'trialing'}
+              className="cursor-pointer"
+            >
+              <div className="flex items-center w-full">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Manage Subscription
+              </div>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem

@@ -5,13 +5,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
+type SubscriptionStatus = {
+  active: boolean;
+  status: string;
+  trialEnd: string | null;
+  currentPeriodEnd: string | null;
+};
+
 type AuthContextType = {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  subscription: SubscriptionStatus | null;
+  loadingSubscription: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
+  openCustomerPortal: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,8 +31,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const refreshSubscription = async () => {
+    if (!user) return;
+    
+    setLoadingSubscription(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('check-subscription', {
+        body: { userId: user.id }
+      });
+      
+      if (error) {
+        console.error('Error checking subscription:', error);
+        return;
+      }
+      
+      setSubscription(data);
+    } catch (error) {
+      console.error('Failed to refresh subscription:', error);
+    } finally {
+      setLoadingSubscription(false);
+    }
+  };
+
+  const openCustomerPortal = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal', {
+        body: { 
+          userId: user.id,
+          returnUrl: window.location.origin + '/dashboard'
+        }
+      });
+      
+      if (error) {
+        throw new Error(`Error creating portal session: ${error.message}`);
+      }
+      
+      if (data.sessionUrl) {
+        window.location.href = data.sessionUrl;
+      } else {
+        throw new Error('No portal URL returned');
+      }
+    } catch (error) {
+      console.error('Error opening customer portal:', error);
+      toast({
+        title: "Error",
+        description: "Unable to open subscription management. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -35,12 +100,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             title: "Success!",
             description: "You've successfully signed in.",
           });
-          navigate('/dashboard');
+          // Don't navigate here - we'll do that after checking subscription status
         } else if (event === 'SIGNED_OUT') {
           toast({
             title: "Signed out",
             description: "You've been successfully signed out.",
           });
+          setSubscription(null);
           navigate('/');
         }
       }
@@ -55,6 +121,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => subscription.unsubscribe();
   }, [toast, navigate]);
+
+  // Check subscription when user changes
+  useEffect(() => {
+    if (user) {
+      refreshSubscription();
+    }
+  }, [user]);
 
   const sendWelcomeEmail = async (email: string, fullName: string) => {
     try {
@@ -92,7 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (!error) {
       await sendWelcomeEmail(email, fullName);
-      navigate('/dashboard');
+      navigate('/welcome');
     }
     
     return { error };
@@ -105,7 +178,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     
     if (!error) {
-      navigate('/dashboard');
+      // Check subscription status before navigating
+      try {
+        const { data } = await supabase.functions.invoke('check-subscription', {
+          body: { userId: user?.id }
+        });
+        
+        setSubscription(data);
+        
+        if (data && (data.active || data.status === 'trialing')) {
+          navigate('/dashboard');
+        } else {
+          navigate('/welcome');
+        }
+      } catch (error) {
+        console.error('Failed to check subscription status:', error);
+        navigate('/welcome');
+      }
     }
     
     return { error };
@@ -116,7 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, loading, subscription, loadingSubscription, signUp, signIn, signOut, refreshSubscription, openCustomerPortal }}>
       {children}
     </AuthContext.Provider>
   );

@@ -12,14 +12,40 @@ import FAQPage from "./pages/FAQPage";
 import ContactPage from "./pages/ContactPage";
 import SignupPage from "./pages/SignupPage";
 import AuthPage from "./pages/AuthPage";
+import WelcomePage from "./pages/WelcomePage";
 import DashboardPage from "./pages/DashboardPage";
-import LeadsPage from "./pages/LeadsPage"; // Added new import
+import LeadsPage from "./pages/LeadsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading, subscription } = useAuth();
+  
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+  
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  // If no subscription check has been done yet, allow access
+  if (subscription === null) {
+    return <>{children}</>;
+  }
+  
+  // If user doesn't have an active subscription, redirect to welcome page
+  if (!subscription.active && subscription.status !== 'trialing') {
+    return <Navigate to="/welcome" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+// Welcome route component (only for authenticated users)
+const WelcomeRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
@@ -43,6 +69,14 @@ const AppContent = () => {
       <Route path="/contact" element={<ContactPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/auth" element={<AuthPage />} />
+      <Route 
+        path="/welcome" 
+        element={
+          <WelcomeRoute>
+            <WelcomePage />
+          </WelcomeRoute>
+        } 
+      />
       <Route 
         path="/dashboard" 
         element={
