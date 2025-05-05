@@ -25,7 +25,7 @@ serve(async (req) => {
     });
 
     // Parse request body
-    const { userId, priceId, returnUrl } = await req.json();
+    const { userId, returnUrl } = await req.json();
 
     if (!userId) {
       throw new Error("Missing required parameter: userId");
@@ -68,16 +68,15 @@ serve(async (req) => {
       customerId = customer.id;
     }
 
-    // Use a real price ID from your Stripe dashboard
-    // This is the crucial change - we need a valid price ID for a recurring subscription
-    const actualPriceId = "price_1PhpOrLXVTuI8YtKeLlLupp6";
+    // The actual price ID for a recurring subscription
+    const priceId = "price_1PhpOrLXVTuI8YtKeLlLupp6";
 
     // Create a Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
         {
-          price: actualPriceId, // Using the actual price ID instead of the one passed in
+          price: priceId,
           quantity: 1,
         },
       ],
@@ -97,7 +96,7 @@ serve(async (req) => {
       user_id: userId,
       stripe_customer_id: customerId,
       status: "trialing",
-      price_id: actualPriceId,
+      price_id: priceId,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
 
