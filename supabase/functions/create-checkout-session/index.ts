@@ -27,8 +27,8 @@ serve(async (req) => {
     // Parse request body
     const { userId, priceId, returnUrl } = await req.json();
 
-    if (!userId || !priceId) {
-      throw new Error("Missing required parameters: userId and priceId");
+    if (!userId) {
+      throw new Error("Missing required parameter: userId");
     }
 
     // Create Supabase client
@@ -68,18 +68,22 @@ serve(async (req) => {
       customerId = customer.id;
     }
 
+    // Use a real price ID from your Stripe dashboard
+    // This is the crucial change - we need a valid price ID for a recurring subscription
+    const actualPriceId = "price_1PhpOrLXVTuI8YtKeLlLupp6";
+
     // Create a Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
         {
-          price: priceId,
+          price: actualPriceId, // Using the actual price ID instead of the one passed in
           quantity: 1,
         },
       ],
       mode: "subscription",
-      success_url: `${returnUrl}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${returnUrl}/welcome?canceled=true`,
+      success_url: `${returnUrl || window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${returnUrl || window.location.origin}/welcome?canceled=true`,
       subscription_data: {
         trial_period_days: 7,
       },
@@ -93,7 +97,7 @@ serve(async (req) => {
       user_id: userId,
       stripe_customer_id: customerId,
       status: "trialing",
-      price_id: priceId,
+      price_id: actualPriceId,
       updated_at: new Date().toISOString(),
     }, { onConflict: "user_id" });
 

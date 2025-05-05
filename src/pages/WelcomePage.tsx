@@ -57,7 +57,6 @@ const WelcomePage: React.FC = () => {
       const { data, error } = await supabase.functions.invoke('create-checkout-session', {
         body: { 
           userId: user.id,
-          priceId: 'price_1PhpOrLXVTuI8YtKeLlLupp6',
           returnUrl: window.location.origin
         }
       });
