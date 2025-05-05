@@ -9,18 +9,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
 const WelcomePage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, refreshSubscription } = useAuth();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const canceled = searchParams.get('canceled') === 'true';
+  const sessionId = searchParams.get('session_id');
 
   useEffect(() => {
     // If no user, redirect to auth
     if (!user) {
       navigate('/auth');
+      return;
+    }
+
+    // If there's a session_id in the URL, it means the user has completed checkout
+    if (sessionId) {
+      // Refresh subscription status and navigate to dashboard
+      handleSuccessfulCheckout();
       return;
     }
 
@@ -46,7 +53,33 @@ const WelcomePage: React.FC = () => {
     };
 
     checkSubscription();
-  }, [user, navigate]);
+  }, [user, navigate, sessionId]);
+
+  const handleSuccessfulCheckout = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    
+    try {
+      // Refresh subscription status
+      await refreshSubscription();
+      
+      toast({
+        title: "Subscription activated!",
+        description: "Your trial has started. Welcome to LeadHustle Pro!",
+        variant: "default"
+      });
+      
+      // Redirect to dashboard after a short delay
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
+    } catch (error) {
+      console.error('Error processing successful checkout:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const startSubscription = async () => {
     if (!user) return;
@@ -66,7 +99,6 @@ const WelcomePage: React.FC = () => {
       }
       
       if (data.sessionUrl) {
-        setCheckoutUrl(data.sessionUrl);
         window.location.href = data.sessionUrl;
       } else {
         throw new Error('No checkout URL returned');

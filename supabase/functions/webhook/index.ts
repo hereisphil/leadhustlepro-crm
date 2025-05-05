@@ -36,7 +36,8 @@ serve(async (req) => {
     try {
       const endpointSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
       if (endpointSecret) {
-        event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
+        // Use constructEventAsync instead of constructEvent
+        event = await stripe.webhooks.constructEventAsync(body, signature, endpointSecret);
       } else {
         event = JSON.parse(body);
         console.warn("⚠️ Webhook signature verification skipped - no endpoint secret found");
@@ -50,10 +51,14 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    console.log(`Processing webhook event: ${event.type}`);
+
     // Handle the event
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object;
+        console.log(`Checkout session completed: ${session.id}`);
+        
         if (session.mode === "subscription") {
           const subscriptionId = session.subscription;
           const customerId = session.customer;
@@ -62,6 +67,8 @@ serve(async (req) => {
           if (userId) {
             // Retrieve subscription details
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            
+            console.log(`Updating subscription for user ${userId}, status: ${subscription.status}`);
             
             // Update subscription record in database
             await supabase.from("subscriptions").upsert({
@@ -79,6 +86,10 @@ serve(async (req) => {
             await supabase.from("profiles").update({
               subscription_status: subscription.status
             }).eq("id", userId);
+            
+            console.log(`Successfully updated subscription for user ${userId}`);
+          } else {
+            console.warn("No userId found in session metadata");
           }
         }
         break;
@@ -88,6 +99,8 @@ serve(async (req) => {
         const subscription = event.data.object;
         const customerId = subscription.customer;
         
+        console.log(`Subscription ${event.type}: ${subscription.id}, customer: ${customerId}`);
+        
         // Find user by customer ID
         const { data: userData } = await supabase
           .from("subscriptions")
@@ -96,6 +109,8 @@ serve(async (req) => {
           .single();
           
         if (userData?.user_id) {
+          console.log(`Updating subscription for user ${userData.user_id}, status: ${subscription.status}`);
+          
           // Update subscription record in database
           await supabase.from("subscriptions").update({
             status: subscription.status,
@@ -108,6 +123,10 @@ serve(async (req) => {
           await supabase.from("profiles").update({
             subscription_status: subscription.status
           }).eq("id", userData.user_id);
+          
+          console.log(`Successfully updated subscription for user ${userData.user_id}`);
+        } else {
+          console.warn(`No user found for customer ${customerId}`);
         }
         break;
       }

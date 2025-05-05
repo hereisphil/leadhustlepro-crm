@@ -70,7 +70,10 @@ serve(async (req) => {
 
     // The actual price ID for a recurring subscription
     const priceId = "price_1PhpOrLXVTuI8YtKeLlLupp6";
-
+    
+    // Determine base URL
+    const origin = returnUrl || (req.headers.get("origin") || "http://localhost:5173");
+    
     // Create a Stripe Checkout session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -81,8 +84,8 @@ serve(async (req) => {
         },
       ],
       mode: "subscription",
-      success_url: `${returnUrl || window.location.origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${returnUrl || window.location.origin}/welcome?canceled=true`,
+      success_url: `${origin}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/welcome?canceled=true`,
       subscription_data: {
         trial_period_days: 7,
       },
