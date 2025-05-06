@@ -42,6 +42,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoadingSubscription(true);
     try {
       console.log("Refreshing subscription data for user:", user.id);
+      
+      // Make sure we're explicitly sending the userId in the request body
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         body: { userId: user.id }
       });

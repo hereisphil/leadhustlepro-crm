@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -63,13 +62,27 @@ const AuthPage: React.FC = () => {
   });
 
   const onLoginSubmit = async (values: LoginFormValues) => {
-    const { error } = await signIn(values.email, values.password);
-    if (error) {
+    setIsSubmitting(true);
+    
+    try {
+      const { error } = await signIn(values.email, values.password);
+      
+      if (error) {
+        toast({
+          title: "Login Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error("Login error:", err);
       toast({
-        title: "Login failed",
-        description: error.message,
-        variant: "destructive",
+        title: "Login Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

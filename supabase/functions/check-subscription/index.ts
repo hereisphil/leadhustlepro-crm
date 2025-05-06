@@ -15,6 +15,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Check subscription function called");
+    
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
       throw new Error("STRIPE_SECRET_KEY is not configured");
@@ -25,7 +27,16 @@ serve(async (req) => {
     });
 
     // Parse request body
-    const { userId } = await req.json();
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      throw new Error("Invalid JSON in request body");
+    }
+    
+    const userId = requestBody?.userId;
+    console.log("Received userId:", userId);
 
     if (!userId) {
       throw new Error("Missing required parameter: userId");
@@ -48,6 +59,7 @@ serve(async (req) => {
     }
 
     if (!subscriptionData || !subscriptionData.stripe_subscription_id) {
+      console.log(`No subscription found for user: ${userId}`);
       return new Response(JSON.stringify({ 
         active: false,
         status: "no_subscription",
@@ -61,6 +73,7 @@ serve(async (req) => {
 
     // Get subscription details from Stripe
     const subscription = await stripe.subscriptions.retrieve(subscriptionData.stripe_subscription_id);
+    console.log(`Retrieved subscription for user ${userId}, status: ${subscription.status}`);
     
     // Update subscription in database
     await supabase.from("subscriptions").update({
