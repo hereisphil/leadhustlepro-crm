@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -32,6 +33,7 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 
 const AuthPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('login');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -156,8 +158,12 @@ const AuthPage: React.FC = () => {
                       )}
                     />
                     
-                    <Button type="submit" className="w-full bg-leadhustle-blue hover:bg-leadhustle-darkBlue">
-                      Sign in
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-leadhustle-blue hover:bg-leadhustle-darkBlue"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Signing in...' : 'Sign in'}
                     </Button>
                   </form>
                 </Form>
