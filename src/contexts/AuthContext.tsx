@@ -197,6 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setSubscription(data);
         
+        // IMPORTANT: Consider both 'active' AND 'trialing' status as valid active subscriptions
         if (data && (data.active || data.status === 'trialing')) {
           console.log("Active subscription found, navigating to dashboard");
           navigate('/dashboard');

@@ -75,8 +75,11 @@ serve(async (req) => {
       subscription_status: subscription.status
     }).eq("id", userId);
 
+    // IMPORTANT: Consider both 'active' AND 'trialing' as valid active subscriptions
+    const isSubscriptionActive = subscription.status === "active" || subscription.status === "trialing";
+
     return new Response(JSON.stringify({
-      active: subscription.status === "active" || subscription.status === "trialing",
+      active: isSubscriptionActive,
       status: subscription.status,
       trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
       currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
