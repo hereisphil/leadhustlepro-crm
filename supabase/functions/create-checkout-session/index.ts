@@ -73,8 +73,8 @@ serve(async (req) => {
       console.log("Using existing customer:", customerId);
     }
 
-    // The actual price ID for a recurring subscription
-    const priceId = "price_1PhpOrLXVTuI8YtKeLlLupp6";
+    // Updated price ID for the subscription
+    const priceId = "price_1PdJSxLXVTuI8YtKWg9LuOgt";
     
     // Determine base URL and construct success URL
     const origin = returnUrl ? new URL(returnUrl).origin : (req.headers.get("origin") || "http://localhost:5173");

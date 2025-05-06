@@ -176,6 +176,16 @@ const WelcomePage: React.FC = () => {
       </div>
       
       <div className="flex-grow flex flex-col items-center justify-center">
+        {/* Welcome Video Placeholder */}
+        <div className="w-full max-w-2xl mb-6 bg-black/5 rounded-lg overflow-hidden">
+          <div className="aspect-video flex items-center justify-center bg-gray-200 border border-gray-300">
+            <div className="text-center p-4">
+              <h3 className="text-lg font-medium mb-2">Welcome to LeadHustle.pro</h3>
+              <p className="text-sm text-gray-600">Watch our introduction video to learn more about our platform</p>
+            </div>
+          </div>
+        </div>
+
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-2xl text-center">Welcome to LeadHustle.pro!</CardTitle>
@@ -187,8 +197,9 @@ const WelcomePage: React.FC = () => {
             <div className="space-y-4">
               <div className="text-center mb-6">
                 <h3 className="text-lg font-semibold mb-2">LeadHustle Pro Plan</h3>
-                <p className="text-3xl font-bold">$49<span className="text-base font-normal">/month</span></p>
+                <p className="text-3xl font-bold">$15.00<span className="text-base font-normal">/month</span></p>
                 <p className="text-gray-500 text-sm mt-1">First 7 days free</p>
+                <p className="text-gray-500 text-sm mt-1">Cancel anytime</p>
               </div>
 
               {canceled && (
@@ -252,7 +263,7 @@ const WelcomePage: React.FC = () => {
         
         <p className="mt-6 text-sm text-gray-500">
           By starting your trial, you agree to our Terms of Service and Privacy Policy.
-          You won't be charged until your trial ends.
+          You won't be charged until your trial ends. Cancel anytime before the trial ends.
         </p>
       </div>
     </div>
