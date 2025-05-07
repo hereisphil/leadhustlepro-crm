@@ -58,12 +58,14 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     console.log(`Processing webhook event: ${event.type}`);
+    console.log("Event object:", JSON.stringify(event.data.object));
 
     // Handle the event
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object;
         console.log(`Checkout session completed: ${session.id}`);
+        console.log("Session metadata:", JSON.stringify(session.metadata));
         
         if (session.mode === "subscription") {
           const subscriptionId = session.subscription;
@@ -71,8 +73,20 @@ serve(async (req) => {
           const userId = session.metadata?.userId;
 
           if (userId) {
+            console.log(`Found userId in metadata: ${userId}`);
+            
             // Retrieve subscription details
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            
+            // Add userId to subscription metadata if not present
+            if (!subscription.metadata?.userId) {
+              console.log("Adding userId to subscription metadata");
+              await stripe.subscriptions.update(subscriptionId, {
+                metadata: {
+                  userId: userId
+                }
+              });
+            }
             
             console.log(`Updating subscription for user ${userId}, status: ${subscription.status}`);
             
@@ -95,7 +109,7 @@ serve(async (req) => {
             
             console.log(`Successfully updated subscription for user ${userId}`);
           } else {
-            console.warn("No userId found in session metadata");
+            console.warn("No userId found in session metadata:", JSON.stringify(session.metadata));
           }
         }
         break;
@@ -105,17 +119,27 @@ serve(async (req) => {
         const subscription = event.data.object;
         const customerId = subscription.customer;
         
+        // First try to get userId from subscription metadata
+        let userId = subscription.metadata?.userId;
         console.log(`Subscription ${event.type}: ${subscription.id}, customer: ${customerId}`);
+        console.log("Subscription metadata:", JSON.stringify(subscription.metadata));
         
-        // Find user by customer ID
-        const { data: userData } = await supabase
-          .from("subscriptions")
-          .select("user_id")
-          .eq("stripe_customer_id", customerId)
-          .single();
+        if (userId) {
+          console.log(`Found userId in subscription metadata: ${userId}`);
+        } else {
+          // If not in metadata, try to find by customer ID
+          console.log("No userId in metadata, searching by customer ID");
+          const { data: userData } = await supabase
+            .from("subscriptions")
+            .select("user_id")
+            .eq("stripe_customer_id", customerId)
+            .single();
+            
+          userId = userData?.user_id;
+        }
           
-        if (userData?.user_id) {
-          console.log(`Updating subscription for user ${userData.user_id}, status: ${subscription.status}`);
+        if (userId) {
+          console.log(`Updating subscription for user ${userId}, status: ${subscription.status}`);
           
           // Update subscription record in database
           await supabase.from("subscriptions").update({
@@ -123,16 +147,16 @@ serve(async (req) => {
             trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
             current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
             updated_at: new Date().toISOString()
-          }).eq("user_id", userData.user_id);
+          }).eq("user_id", userId);
 
           // Update user profile subscription status
           await supabase.from("profiles").update({
             subscription_status: subscription.status
-          }).eq("id", userData.user_id);
+          }).eq("id", userId);
           
-          console.log(`Successfully updated subscription for user ${userData.user_id}`);
+          console.log(`Successfully updated subscription for user ${userId}`);
         } else {
-          console.warn(`No user found for customer ${customerId}`);
+          console.warn(`No user found for customer ${customerId} and no userId in metadata`);
         }
         break;
       }

@@ -84,7 +84,7 @@ serve(async (req) => {
     console.log("Success URL:", successUrl);
     console.log("Cancel URL:", cancelUrl);
     
-    // Create a Stripe Checkout session
+    // Create a Stripe Checkout session WITH USER ID METADATA
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       line_items: [
@@ -98,9 +98,12 @@ serve(async (req) => {
       cancel_url: cancelUrl,
       subscription_data: {
         trial_period_days: 7,
+        metadata: {
+          userId: userId,  // Add userId to subscription_data metadata
+        },
       },
       metadata: {
-        userId: userId,
+        userId: userId,  // CRITICAL: Add userId to session metadata
       },
     });
 
@@ -114,6 +117,7 @@ serve(async (req) => {
     }, { onConflict: "user_id" });
 
     console.log("Checkout session created:", session.id);
+    console.log("Session metadata:", session.metadata);
     
     return new Response(JSON.stringify({ sessionUrl: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

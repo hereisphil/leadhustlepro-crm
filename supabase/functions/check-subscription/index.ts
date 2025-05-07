@@ -58,7 +58,7 @@ serve(async (req) => {
       throw new Error(`Error fetching subscription: ${subscriptionError.message}`);
     }
 
-    if (!subscriptionData || !subscriptionData.stripe_subscription_id) {
+    if (!subscriptionData || !subscriptionData.stripe_customer_id) {
       console.log(`No subscription found for user: ${userId}`);
       return new Response(JSON.stringify({ 
         active: false,
@@ -71,35 +71,123 @@ serve(async (req) => {
       });
     }
 
-    // Get subscription details from Stripe
-    const subscription = await stripe.subscriptions.retrieve(subscriptionData.stripe_subscription_id);
-    console.log(`Retrieved subscription for user ${userId}, status: ${subscription.status}`);
+    // If we have a customer but no subscription ID, try to find active subscriptions for this customer
+    if (!subscriptionData.stripe_subscription_id && subscriptionData.stripe_customer_id) {
+      console.log(`No subscription ID found, looking up by customer ID: ${subscriptionData.stripe_customer_id}`);
+      
+      const subscriptions = await stripe.subscriptions.list({
+        customer: subscriptionData.stripe_customer_id,
+        status: 'all',
+        limit: 1
+      });
+      
+      if (subscriptions.data.length > 0) {
+        const subscription = subscriptions.data[0];
+        console.log(`Found subscription ${subscription.id} via customer lookup`);
+        
+        // Update the subscription with userId metadata if not present
+        if (!subscription.metadata?.userId) {
+          console.log(`Adding userId metadata to subscription ${subscription.id}`);
+          await stripe.subscriptions.update(subscription.id, {
+            metadata: { userId }
+          });
+        }
+        
+        // Update subscription record in database
+        await supabase.from("subscriptions").update({
+          stripe_subscription_id: subscription.id,
+          status: subscription.status,
+          trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          updated_at: new Date().toISOString()
+        }).eq("user_id", userId);
+        
+        // Continue checking this subscription
+        subscriptionData.stripe_subscription_id = subscription.id;
+      }
+    }
     
-    // Update subscription in database
-    await supabase.from("subscriptions").update({
-      status: subscription.status,
-      trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
-      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-      updated_at: new Date().toISOString()
-    }).eq("user_id", userId);
+    // If we still have no subscription ID, return no_subscription
+    if (!subscriptionData.stripe_subscription_id) {
+      console.log(`No subscription found for customer: ${subscriptionData.stripe_customer_id}`);
+      return new Response(JSON.stringify({
+        active: false,
+        status: "no_subscription",
+        trialEnd: null,
+        currentPeriodEnd: null
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
-    // Update user profile subscription status
-    await supabase.from("profiles").update({
-      subscription_status: subscription.status
-    }).eq("id", userId);
+    // Get subscription details from Stripe
+    try {
+      const subscription = await stripe.subscriptions.retrieve(subscriptionData.stripe_subscription_id);
+      console.log(`Retrieved subscription for user ${userId}, status: ${subscription.status}`);
+      
+      // Add userId to subscription metadata if not present
+      if (!subscription.metadata?.userId) {
+        console.log(`Adding userId metadata to subscription ${subscription.id}`);
+        await stripe.subscriptions.update(subscription.id, {
+          metadata: { userId }
+        });
+      }
+      
+      // Update subscription in database
+      await supabase.from("subscriptions").update({
+        status: subscription.status,
+        trial_end: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+        updated_at: new Date().toISOString()
+      }).eq("user_id", userId);
 
-    // IMPORTANT: Consider both 'active' AND 'trialing' as valid active subscriptions
-    const isSubscriptionActive = subscription.status === "active" || subscription.status === "trialing";
+      // Update user profile subscription status
+      await supabase.from("profiles").update({
+        subscription_status: subscription.status
+      }).eq("id", userId);
 
-    return new Response(JSON.stringify({
-      active: isSubscriptionActive,
-      status: subscription.status,
-      trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
-      currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+      // IMPORTANT: Consider both 'active' AND 'trialing' as valid active subscriptions
+      const isSubscriptionActive = subscription.status === "active" || subscription.status === "trialing";
+
+      return new Response(JSON.stringify({
+        active: isSubscriptionActive,
+        status: subscription.status,
+        trialEnd: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null,
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000).toISOString(),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    } catch (stripeError) {
+      console.error(`Error retrieving subscription ${subscriptionData.stripe_subscription_id}:`, stripeError);
+      
+      // If the subscription doesn't exist in Stripe anymore, clear it from the database
+      if (stripeError.code === 'resource_missing') {
+        console.log(`Subscription ${subscriptionData.stripe_subscription_id} not found in Stripe, clearing from database`);
+        await supabase.from("subscriptions").update({
+          stripe_subscription_id: null,
+          status: "canceled",
+          updated_at: new Date().toISOString()
+        }).eq("user_id", userId);
+        
+        await supabase.from("profiles").update({
+          subscription_status: "canceled"
+        }).eq("id", userId);
+        
+        return new Response(JSON.stringify({
+          active: false,
+          status: "canceled",
+          trialEnd: null,
+          currentPeriodEnd: null
+        }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      
+      throw stripeError;
+    }
   } catch (error) {
     console.error("Error checking subscription:", error);
     return new Response(JSON.stringify({ error: error.message }), {
